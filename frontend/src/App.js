@@ -151,6 +151,21 @@ const styles = {
   },
   statNum: { fontSize: "28px", fontWeight: "700", color: "#38bdf8" },
   statLabel: { fontSize: "12px", color: "#64748b", marginTop: "4px" },
+  signalBars: { display: "flex", gap: "3px", alignItems: "flex-end", justifyContent: "center", height: "28px" },
+  signalBar: (active, color) => ({
+    width: "6px",
+    background: active ? color : "#334155",
+    borderRadius: "2px",
+  }),
+  pinForm: { display: "flex", gap: "10px", alignItems: "center", marginTop: "12px" },
+  gnssGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+    gap: "16px",
+  },
+  gnssItem: { background: "#0f172a", borderRadius: "8px", padding: "12px 16px" },
+  gnssLabel: { fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" },
+  gnssValue: { fontSize: "16px", color: "#e2e8f0", fontFamily: "monospace", marginTop: "4px" },
 };
 
 // ─── Login ────────────────────────────────────────────────────────────────────
@@ -482,17 +497,214 @@ function LogsPage() {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
+function SignalBars({ percent, quality }) {
+  const barCount = 5;
+  const filled = percent == null ? 0 : Math.ceil((percent / 100) * barCount);
+  const color = quality === "excellent" || quality === "good" ? "#10b981"
+              : quality === "fair" ? "#f59e0b"
+              : "#ef4444";
+  return (
+    <div style={styles.signalBars}>
+      {Array.from({ length: barCount }).map((_, i) => (
+        <div key={i} style={{ ...styles.signalBar(i < filled, color), height: `${8 + i * 5}px` }} />
+      ))}
+    </div>
+  );
+}
+
+const QUALITY_LABEL = { excellent: "Sehr gut", good: "Gut", fair: "Mittel", poor: "Schwach", no_signal: "Kein Signal" };
+const SIM_STATUS_LABEL = {
+  ready: "Bereit", pin_required: "PIN erforderlich", puk_required: "PUK erforderlich",
+  not_inserted: "Keine SIM-Karte", phone_sim_pin_required: "PIN erforderlich",
+};
+const NETWORK_STATUS_LABEL = {
+  registered_home: "Im Heimnetz", registered_roaming: "Roaming",
+  searching: "Suche Netz…", not_registered: "Nicht registriert",
+  registration_denied: "Registrierung verweigert", unknown: "Unbekannt",
+};
+
+function PinEntry({ onSubmitted }) {
+  const [pin, setPin] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const submit = async () => {
+    if (!pin) return;
+    setSubmitting(true);
+    setResult(null);
+    try {
+      await api.post("/modem/pin", { pin });
+      // Poll for the result a few times
+      for (let i = 0; i < 8; i++) {
+        await new Promise(r => setTimeout(r, 1500));
+        const res = await api.get("/modem/pin/status");
+        if (res.data.processed && res.data.result) {
+          setResult(res.data.result);
+          if (res.data.result === "ok") {
+            setPin("");
+            onSubmitted?.();
+          }
+          break;
+        }
+      }
+    } catch {
+      setResult("error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={styles.pinForm}>
+        <input
+          style={{ ...styles.input, maxWidth: "140px" }}
+          type="password"
+          inputMode="numeric"
+          placeholder="SIM-PIN eingeben"
+          value={pin}
+          onChange={e => setPin(e.target.value.replace(/\D/g, ""))}
+          onKeyDown={e => e.key === "Enter" && submit()}
+          disabled={submitting}
+        />
+        <button style={styles.btn("#10b981")} onClick={submit} disabled={submitting || !pin}>
+          {submitting ? "Wird geprüft…" : "PIN senden"}
+        </button>
+      </div>
+      {result === "ok" && <div style={{ color: "#6ee7b7", fontSize: "13px", marginTop: "8px" }}>✓ PIN akzeptiert</div>}
+      {result === "error" && <div style={{ color: "#fca5a5", fontSize: "13px", marginTop: "8px" }}>✗ PIN falsch oder abgelehnt</div>}
+      {result === "unknown" && <div style={{ color: "#fbbf24", fontSize: "13px", marginTop: "8px" }}>⚠ Unklare Antwort vom Modem, bitte Status prüfen</div>}
+    </div>
+  );
+}
+
+function ModemCard({ modem, onRefresh }) {
+  if (!modem) {
+    return (
+      <div style={styles.card}>
+        <h2 style={styles.h2}>📡 Modem &amp; Mobilfunk</h2>
+        <p style={{ color: "#475569" }}>Noch keine Daten vom Modem empfangen…</p>
+      </div>
+    );
+  }
+
+  const needsPin = modem.sim_status === "pin_required" || modem.sim_status === "phone_sim_pin_required";
+
+  return (
+    <div style={styles.card}>
+      <h2 style={styles.h2}>📡 Modem &amp; Mobilfunk</h2>
+
+      <div style={styles.statusCard}>
+        <div style={styles.statBox}>
+          <SignalBars percent={modem.signal_percent} quality={modem.signal_quality} />
+          <div style={styles.statLabel}>
+            {modem.signal_raw != null ? `${modem.signal_raw}/31 · ` : ""}
+            {QUALITY_LABEL[modem.signal_quality] || "–"}
+          </div>
+        </div>
+        <div style={styles.statBox}>
+          <div style={{ ...styles.statNum, fontSize: "16px" }}>
+            {NETWORK_STATUS_LABEL[modem.network_status] || "–"}
+          </div>
+          <div style={styles.statLabel}>{modem.operator || "Netzstatus"}</div>
+        </div>
+        <div style={styles.statBox}>
+          <div style={{ ...styles.statNum, fontSize: "16px", color: needsPin ? "#f59e0b" : "#10b981" }}>
+            {SIM_STATUS_LABEL[modem.sim_status] || modem.sim_status || "–"}
+          </div>
+          <div style={styles.statLabel}>SIM-Status</div>
+        </div>
+        <div style={styles.statBox}>
+          <div style={{ ...styles.statNum, color: modem.connected ? "#10b981" : "#f59e0b" }}>
+            {modem.connected ? "●" : "○"}
+          </div>
+          <div style={styles.statLabel}>Verbindung</div>
+        </div>
+      </div>
+
+      {needsPin && (
+        <div style={{ marginTop: "8px", paddingTop: "16px", borderTop: "1px solid #334155" }}>
+          <div style={{ color: "#fbbf24", fontSize: "13px", marginBottom: "4px" }}>
+            ⚠ Die SIM-Karte wartet auf die PIN-Eingabe
+          </div>
+          <PinEntry onSubmitted={onRefresh} />
+        </div>
+      )}
+
+      {modem.last_updated && (
+        <div style={{ color: "#475569", fontSize: "11px", marginTop: "12px" }}>
+          Zuletzt aktualisiert: {new Date(modem.last_updated).toLocaleString("de-DE")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GnssCard({ modem }) {
+  if (!modem) return null;
+
+  if (!modem.gnss_fix) {
+    return (
+      <div style={styles.card}>
+        <h2 style={styles.h2}>🛰️ GNSS / Position</h2>
+        <p style={{ color: "#64748b", fontSize: "13px" }}>
+          Kein GPS-Fix. Das kann beim ersten Start einige Minuten dauern (freie Sicht zum Himmel hilft).
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.card}>
+      <h2 style={styles.h2}>🛰️ GNSS / Position</h2>
+      <div style={styles.gnssGrid}>
+        <div style={styles.gnssItem}>
+          <div style={styles.gnssLabel}>Breitengrad</div>
+          <div style={styles.gnssValue}>{modem.gnss_lat?.toFixed(6) ?? "–"}</div>
+        </div>
+        <div style={styles.gnssItem}>
+          <div style={styles.gnssLabel}>Längengrad</div>
+          <div style={styles.gnssValue}>{modem.gnss_lon?.toFixed(6) ?? "–"}</div>
+        </div>
+        <div style={styles.gnssItem}>
+          <div style={styles.gnssLabel}>Höhe</div>
+          <div style={styles.gnssValue}>{modem.gnss_alt != null ? `${modem.gnss_alt} m` : "–"}</div>
+        </div>
+        <div style={styles.gnssItem}>
+          <div style={styles.gnssLabel}>Satelliten</div>
+          <div style={styles.gnssValue}>{modem.gnss_satellites ?? "–"}</div>
+        </div>
+        <div style={styles.gnssItem}>
+          <div style={styles.gnssLabel}>UTC-Zeit (GNSS)</div>
+          <div style={styles.gnssValue}>
+            {modem.gnss_utc_time ? new Date(modem.gnss_utc_time).toLocaleString("de-DE", { timeZone: "UTC" }) + " UTC" : "–"}
+          </div>
+        </div>
+      </div>
+      <div style={{ color: "#475569", fontSize: "11px", marginTop: "12px" }}>
+        Die Systemzeit des Pi wird beim Start einmalig von diesem GNSS-Fix übernommen (kein NTP nötig).
+      </div>
+    </div>
+  );
+}
+
 function Dashboard() {
   const [status, setStatus] = useState(null);
+  const [modem, setModem] = useState(null);
+
+  const loadModem = useCallback(async () => {
+    try { const r = await api.get("/modem"); setModem(r.data); } catch {}
+  }, []);
 
   useEffect(() => {
     const load = async () => {
       try { const r = await api.get("/status"); setStatus(r.data); } catch {}
+      loadModem();
     };
     load();
     const t = setInterval(load, 5000);
     return () => clearInterval(t);
-  }, []);
+  }, [loadModem]);
 
   return (
     <div style={styles.page}>
@@ -510,19 +722,26 @@ function Dashboard() {
           <div style={styles.statLabel}>Anrufe gesamt</div>
         </div>
         <div style={styles.statBox}>
-          <div style={{ ...styles.statNum, color: status?.modem === "connected" ? "#10b981" : "#f59e0b" }}>
-            {status?.modem === "connected" ? "●" : "○"}
+          <div style={{ ...styles.statNum, color: modem?.connected ? "#10b981" : "#f59e0b" }}>
+            {modem?.connected ? "●" : "○"}
           </div>
           <div style={styles.statLabel}>Modem</div>
         </div>
       </div>
+
+      <ModemCard modem={modem} onRefresh={loadModem} />
+      <GnssCard modem={modem} />
+
       {status?.last_call && (
         <div style={styles.card}>
           <h2 style={styles.h2}>Letzter Anruf</h2>
-          <div style={{ fontFamily: "monospace", color: "#7dd3fc", fontSize: "18px" }}>{status.last_call}</div>
-          <div style={{ color: "#64748b", fontSize: "13px", marginTop: "8px" }}>Status: {status.last_status}</div>
+          <div style={{ fontFamily: "monospace", color: "#7dd3fc", fontSize: "18px" }}>{status.last_call.phone}</div>
+          <div style={{ color: "#64748b", fontSize: "13px", marginTop: "8px" }}>
+            Status: {status.last_call.status} · {new Date(status.last_call.call_time).toLocaleString("de-DE")}
+          </div>
         </div>
       )}
+
       <div style={styles.card}>
         <h2 style={styles.h2}>📖 Kurzanleitung</h2>
         <ol style={{ color: "#94a3b8", lineHeight: "2", paddingLeft: "20px" }}>

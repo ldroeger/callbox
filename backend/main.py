@@ -207,13 +207,59 @@ def get_status(user=Depends(require_auth)):
     users = conn.execute("SELECT COUNT(*) as c FROM users WHERE active=1").fetchone()["c"]
     audios = conn.execute("SELECT COUNT(*) as c FROM audio").fetchone()["c"]
     logs = conn.execute("SELECT COUNT(*) as c FROM call_log").fetchone()["c"]
+    last_call = conn.execute(
+        "SELECT phone, status, call_time FROM call_log ORDER BY call_time DESC LIMIT 1"
+    ).fetchone()
     conn.close()
+
     return {
         "active_users": users,
         "audio_files": audios,
         "total_calls": logs,
-        **live_status
+        "last_call": dict(last_call) if last_call else None,
     }
+
+
+# ─── Modem Status & GNSS ─────────────────────────────────────────────────────
+
+@app.get("/api/modem")
+def get_modem(user=Depends(require_auth)):
+    """
+    Returns the latest modem status snapshot as written by the call engine:
+    connectivity, SIM/PIN state, network registration, signal quality,
+    operator name, and GNSS fix (used for position + system time sync).
+    """
+    status = database.get_modem_status()
+    if not status:
+        raise HTTPException(status_code=404, detail="No modem status available yet")
+    return status
+
+class PinSubmit(BaseModel):
+    pin: str
+
+@app.post("/api/modem/pin")
+def submit_pin(data: PinSubmit, user=Depends(require_auth)):
+    """
+    Queues a PIN for the call engine to submit to the modem.
+    The call engine polls for pending requests and resolves them;
+    poll /api/modem/pin/status afterwards to see the result.
+    """
+    if not data.pin or not data.pin.isdigit() or len(data.pin) not in (4, 8):
+        raise HTTPException(status_code=400, detail="PIN must be 4 or 8 digits")
+    database.request_pin_entry(data.pin)
+    return {"ok": True, "queued": True}
+
+@app.get("/api/modem/pin/status")
+def pin_status(user=Depends(require_auth)):
+    """
+    Poll this after submitting a PIN to see whether the call engine
+    has processed it yet, and whether the modem accepted it.
+    result: null (pending) | "ok" | "error" | "unknown"
+    """
+    result = database.get_pin_request_result()
+    if not result:
+        return {"processed": True, "result": None}
+    return result
 
 
 # ─── WebSocket Live ──────────────────────────────────────────────────────────
@@ -224,7 +270,8 @@ async def websocket_endpoint(websocket: WebSocket):
     ws_clients.append(websocket)
     try:
         while True:
-            await websocket.send_json(live_status)
+            modem = database.get_modem_status() or {}
+            await websocket.send_json({**live_status, "modem": modem})
             await asyncio.sleep(3)
     except Exception:
         ws_clients.remove(websocket)

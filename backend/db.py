@@ -47,6 +47,36 @@ def init_db():
             audio_played TEXT,
             call_time TEXT DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS modem_status (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            connected INTEGER DEFAULT 0,
+            sim_status TEXT,
+            network_status TEXT,
+            network_status_code INTEGER,
+            signal_raw INTEGER,
+            signal_percent INTEGER,
+            signal_quality TEXT,
+            operator TEXT,
+            gnss_fix INTEGER DEFAULT 0,
+            gnss_lat REAL,
+            gnss_lon REAL,
+            gnss_alt REAL,
+            gnss_satellites INTEGER,
+            gnss_utc_time TEXT,
+            gnss_speed REAL,
+            last_updated TEXT
+        );
+
+        INSERT OR IGNORE INTO modem_status (id) VALUES (1);
+
+        CREATE TABLE IF NOT EXISTS pin_request (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            pin TEXT,
+            requested_at TEXT,
+            processed INTEGER DEFAULT 0,
+            result TEXT
+        );
     """)
 
     conn.commit()
@@ -83,3 +113,70 @@ def log_call(phone: str, status: str, audio: str = None):
     )
     conn.commit()
     conn.close()
+
+
+# ─── Modem Status ────────────────────────────────────────────────────────────
+
+def get_modem_status():
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM modem_status WHERE id=1").fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def update_modem_status(**fields):
+    """Update only the provided fields in the modem_status row."""
+    if not fields:
+        return
+    conn = get_conn()
+    fields["last_updated"] = datetime.now().isoformat()
+    columns = ", ".join(f"{k}=?" for k in fields)
+    values = list(fields.values())
+    conn.execute(f"UPDATE modem_status SET {columns} WHERE id=1", values)
+    conn.commit()
+    conn.close()
+
+
+# ─── PIN Request (Web -> Call Engine handoff) ───────────────────────────────
+
+def request_pin_entry(pin: str):
+    conn = get_conn()
+    conn.execute("""
+        INSERT INTO pin_request (id, pin, requested_at, processed, result)
+        VALUES (1, ?, ?, 0, NULL)
+        ON CONFLICT(id) DO UPDATE SET
+            pin=excluded.pin,
+            requested_at=excluded.requested_at,
+            processed=0,
+            result=NULL
+    """, (pin, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+
+def get_pending_pin_request():
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT * FROM pin_request WHERE id=1 AND processed=0"
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def resolve_pin_request(result: str):
+    conn = get_conn()
+    conn.execute(
+        "UPDATE pin_request SET processed=1, result=?, pin=NULL WHERE id=1",
+        (result,)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_pin_request_result():
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT processed, result FROM pin_request WHERE id=1"
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None

@@ -41,7 +41,7 @@ Nach der Installation erreichbar unter `http://<Pi-IP>:3000`
 
 | Seite | Funktion |
 |---|---|
-| **Dashboard** | Systemstatus, Modem-Status, letzter Anruf |
+| **Dashboard** | Systemstatus, Modem-Status, Signalstärke, GNSS-Position, letzter Anruf |
 | **Nutzer** | Telefonnummern anlegen, sperren, löschen |
 | **Audio** | MP3/WAV-Dateien hochladen und verwalten |
 | **Matrix** | Zuordnung Nutzer ↔ Audio (per Klick) |
@@ -57,6 +57,27 @@ Sicherheit         ○           ○          ●
 ```
 
 ● = aktiv zugewiesen  •  Klick zum Umschalten
+
+---
+
+## 📡 Modem-Status & GNSS
+
+Das Dashboard zeigt live Daten direkt vom SIM7600-Modem, alle 15 Sekunden aktualisiert:
+
+- **Signalstärke** als Balkenanzeige (0–31, in % umgerechnet) mit Qualitätsstufe
+- **Netzstatus** (registriert im Heimnetz, Roaming, Suche, etc.) und Netzbetreibername
+- **SIM-Status** inklusive automatischer Erkennung, ob eine PIN-Eingabe nötig ist
+- **GNSS-Position** (Breite/Länge, Höhe, Anzahl Satelliten, UTC-Zeit), sofern GPS-Fix vorhanden
+
+### PIN-Eingabe im Webinterface
+
+Falls die SIM-Karte beim Start eine PIN erwartet, erscheint im Dashboard automatisch ein Eingabefeld. Die PIN wird sicher an die Call-Engine übergeben, die sie direkt ans Modem sendet – kein Minicom/SSH mehr nötig.
+
+> **Für den Dauerbetrieb empfehlenswert:** Die SIM-PIN dauerhaft deaktivieren (im Modem selbst, siehe Fehlerbehebung), damit das System nach jedem Neustart automatisch ins Netz kommt, ohne dass jemand die PIN eingeben muss.
+
+### Systemzeit per GNSS
+
+Da das SIM7600 GNSS (GPS/GLONASS/BeiDou) unterstützt, kann die Pi-Systemzeit beim Start einmalig aus einem GNSS-Fix gesetzt werden – nützlich, wenn der Pi keinen Internetzugang für NTP hat oder ohne RTC-Modul betrieben wird. Steuerbar über `SYNC_SYSTEM_TIME_FROM_GNSS=true/false` in der `.env`.
 
 ---
 
@@ -110,6 +131,8 @@ ADMIN_PASS=sicheres-passwort  # Web-Interface Passwort
 REJECT_UNKNOWN=true           # Unbekannte Nummern ablehnen
 NUMBER_FORMAT=international   # international (+49...) oder national (0...)
 LOG_RETENTION_DAYS=30         # Protokoll-Aufbewahrung
+SYNC_SYSTEM_TIME_FROM_GNSS=true  # Pi-Systemzeit einmalig aus GNSS-Fix setzen
+STATUS_INTERVAL_SECONDS=15    # Wie oft Signal/GNSS/SIM-Status abgefragt werden
 ```
 
 ### Verbindungsart: USB vs. GPIO-UART

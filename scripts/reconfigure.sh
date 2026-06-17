@@ -53,6 +53,8 @@ services:
     volumes:
       - ./audio:/audio
       - ./data:/data
+    cap_add:
+      - SYS_TIME
     restart: always
     environment:
       - MODEM_PORT=${RESOLVED_MODEM_PORT}
@@ -60,6 +62,8 @@ services:
       - DB_PATH=/data/callbox.db
       - REJECT_UNKNOWN=${REJECT_UNKNOWN:-true}
       - NUMBER_FORMAT=${NUMBER_FORMAT:-international}
+      - STATUS_INTERVAL_SECONDS=${STATUS_INTERVAL_SECONDS:-15}
+      - SYNC_SYSTEM_TIME_FROM_GNSS=${SYNC_SYSTEM_TIME_FROM_GNSS:-true}
 
   frontend:
     build:

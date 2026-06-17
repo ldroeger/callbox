@@ -4,7 +4,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y mpg123 alsa-utils && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir pyserial requests
+RUN pip install --no-cache-dir pyserial
 
 COPY . .
 
