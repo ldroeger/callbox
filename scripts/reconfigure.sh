@@ -3,6 +3,10 @@
 
 INSTALL_DIR="/opt/callbox"
 
+if [ ! -t 0 ] && [ -e /dev/tty ]; then
+  exec < /dev/tty
+fi
+
 if [ "$EUID" -ne 0 ]; then
   echo "Bitte als root ausführen: sudo bash /opt/callbox/scripts/reconfigure.sh"
   exit 1

@@ -5,6 +5,22 @@
 
 INSTALL_DIR="${INSTALL_DIR:-/opt/callbox}"
 
+# ─── TTY guard ────────────────────────────────────────────────────────────────
+# When this script is run via `curl ... | sudo bash`, stdin is the pipe
+# carrying the script itself, not the user's keyboard. Every `read` below
+# would then get empty input instantly instead of waiting for a real answer.
+# Re-attach stdin to the actual terminal device if one is available.
+if [ ! -t 0 ] && [ -e /dev/tty ]; then
+  exec < /dev/tty
+fi
+
+if [ ! -t 0 ]; then
+  echo "FEHLER: Kein interaktives Terminal verfügbar (/dev/tty fehlt)."
+  echo "Dieser Assistent benötigt eine echte Terminal-Sitzung (SSH/Konsole),"
+  echo "z.B. läuft er nicht in manchen CI-/Automatisierungsumgebungen."
+  exit 1
+fi
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

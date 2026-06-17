@@ -7,6 +7,14 @@
 
 set -e
 
+# ─── TTY guard ────────────────────────────────────────────────────────────────
+# When run via `curl ... | sudo bash`, stdin carries the script itself, not
+# the user's keyboard. Re-attach stdin to the real terminal so the later
+# read prompts (here and in setup_wizard.sh) actually wait for input.
+if [ ! -t 0 ] && [ -e /dev/tty ]; then
+  exec < /dev/tty
+fi
+
 REPO="https://github.com/ldroeger/callbox"
 REPO_RAW="https://raw.githubusercontent.com/ldroeger/callbox/main"
 INSTALL_DIR="/opt/callbox"
