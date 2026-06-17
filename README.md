@@ -102,7 +102,8 @@ sudo systemctl restart callbox
 ### Wichtige Einstellungen
 
 ```env
-MODEM_PORT=/dev/ttyUSB2       # SIM7600 Port
+CONNECTION_MODE=usb           # usb (UART-Jumper A) oder gpio (UART-Jumper B)
+MODEM_PORT=/dev/ttyUSB2       # SIM7600 Port (USB) oder /dev/serial0 (GPIO-UART)
 HOST_IP=192.168.1.100         # IP des Raspberry Pi
 ADMIN_USER=admin              # Web-Interface Benutzer
 ADMIN_PASS=sicheres-passwort  # Web-Interface Passwort
@@ -110,6 +111,31 @@ REJECT_UNKNOWN=true           # Unbekannte Nummern ablehnen
 NUMBER_FORMAT=international   # international (+49...) oder national (0...)
 LOG_RETENTION_DAYS=30         # Protokoll-Aufbewahrung
 ```
+
+### Verbindungsart: USB vs. GPIO-UART
+
+Das SIM7600 kann auf zwei Arten mit dem Pi verbunden werden – die Wahl wird über den **UART-Jumper** auf dem HAT getroffen (Stellung A/B/C):
+
+| Jumper | Verbindungsart | Zusätzliches Kabel | Modem-Port |
+|---|---|---|---|
+| **A** | USB | Ja, Micro-USB-Kabel HAT → Pi | `/dev/ttyUSB0`–`ttyUSB3` |
+| **B** | GPIO-UART | Nein | `/dev/serial0` |
+
+Bei **GPIO-UART** muss zusätzlich in `/boot/firmware/config.txt` Folgendes gesetzt sein:
+
+```ini
+enable_uart=1
+dtoverlay=disable-bt
+```
+
+und Bluetooth deaktiviert werden:
+
+```bash
+sudo systemctl disable hciuart
+sudo reboot
+```
+
+> **Hinweis (Pi 4):** Bluetooth ist fest mit dem vollwertigen UART verdrahtet. Ohne `disable-bt` zeigt `/dev/serial0` auf den langsameren Mini-UART, was zu instabiler Kommunikation führen kann.
 
 ---
 

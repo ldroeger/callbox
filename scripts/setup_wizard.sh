@@ -51,35 +51,73 @@ log "IP gesetzt: $HOST_IP"
 step "2/5" "SIM7600 Modem-Erkennung"
 
 echo ""
-info "Suche nach angeschlossenen Modems..."
+echo -e "  ${BOLD}Wie ist das SIM7600 angebunden?${NC}"
+echo ""
+echo -e "  ${CYAN}[1]${NC} USB (UART-Jumper auf 'A', eigenes Micro-USB-Kabel zum Pi)"
+echo -e "  ${CYAN}[2]${NC} GPIO-UART (UART-Jumper auf 'B', kein zusätzliches Kabel)"
+echo ""
+read -p "  Auswahl [1]: " CONN_TYPE
+CONN_TYPE="${CONN_TYPE:-1}"
+
 echo ""
 
-DETECTED_PORT=""
-for port in /dev/ttyUSB0 /dev/ttyUSB1 /dev/ttyUSB2 /dev/ttyUSB3 /dev/ttyUSB4; do
-  if [ -e "$port" ]; then
-    echo -e "  ${GREEN}●${NC} Gefunden: ${CYAN}$port${NC}"
-    DETECTED_PORT="$port"
+if [ "$CONN_TYPE" = "2" ]; then
+  # ─── GPIO-UART Modus ─────────────────────────────────────────────────────
+  info "GPIO-UART Modus gewählt."
+  echo ""
+
+  if [ -e /dev/serial0 ]; then
+    log "GPIO-UART gefunden: /dev/serial0 → $(readlink -f /dev/serial0 2>/dev/null)"
+    DETECTED_PORT="/dev/serial0"
   else
-    echo -e "  ${DIM}○ Nicht vorhanden: $port${NC}"
+    warn "/dev/serial0 nicht gefunden. UART muss aktiviert sein."
+    echo -e "  ${DIM}Prüfe: enable_uart=1 und dtoverlay=disable-bt in /boot/firmware/config.txt${NC}"
+    DETECTED_PORT="/dev/serial0"
   fi
-done
 
-echo ""
-
-if [ -n "$DETECTED_PORT" ]; then
-  log "Modem erkannt: $DETECTED_PORT"
+  echo ""
   prompt "Modem-Port:"
   read -p "  Port [${DETECTED_PORT}]: " INPUT_PORT
   MODEM_PORT="${INPUT_PORT:-$DETECTED_PORT}"
-else
-  warn "Kein Modem gefunden. Bitte SIM7600 einstecken."
+  CONNECTION_MODE="gpio"
+
   echo ""
-  prompt "Modem-Port manuell eingeben:"
-  read -p "  Port [/dev/ttyUSB2]: " INPUT_PORT
-  MODEM_PORT="${INPUT_PORT:-/dev/ttyUSB2}"
+  warn "Wichtig: Bluetooth muss deaktiviert sein (UART wird sonst geteilt)."
+  echo -e "  ${DIM}Falls noch nicht erledigt: sudo systemctl disable hciuart${NC}"
+
+else
+  # ─── USB Modus ───────────────────────────────────────────────────────────
+  info "Suche nach angeschlossenen USB-Modems..."
+  echo ""
+
+  DETECTED_PORT=""
+  for port in /dev/ttyUSB0 /dev/ttyUSB1 /dev/ttyUSB2 /dev/ttyUSB3 /dev/ttyUSB4; do
+    if [ -e "$port" ]; then
+      echo -e "  ${GREEN}●${NC} Gefunden: ${CYAN}$port${NC}"
+      DETECTED_PORT="$port"
+    else
+      echo -e "  ${DIM}○ Nicht vorhanden: $port${NC}"
+    fi
+  done
+
+  echo ""
+
+  if [ -n "$DETECTED_PORT" ]; then
+    log "Modem erkannt: $DETECTED_PORT"
+    prompt "Modem-Port:"
+    read -p "  Port [${DETECTED_PORT}]: " INPUT_PORT
+    MODEM_PORT="${INPUT_PORT:-$DETECTED_PORT}"
+  else
+    warn "Kein Modem gefunden. Bitte SIM7600 einstecken (inkl. Micro-USB-Kabel zum Pi)."
+    echo ""
+    prompt "Modem-Port manuell eingeben:"
+    read -p "  Port [/dev/ttyUSB2]: " INPUT_PORT
+    MODEM_PORT="${INPUT_PORT:-/dev/ttyUSB2}"
+  fi
+  CONNECTION_MODE="usb"
 fi
 
-log "Modem-Port: $MODEM_PORT"
+log "Modem-Port: $MODEM_PORT (Modus: $CONNECTION_MODE)"
 
 # ─── Step 3: Audio-Gerät ──────────────────────────────────────────────────────
 
@@ -192,6 +230,7 @@ echo -e "${BOLD}${CYAN}  │         Zusammenfassung                 │${NC}"
 echo -e "${BOLD}${CYAN}  └─────────────────────────────────────────┘${NC}"
 echo ""
 echo -e "  ${DIM}IP-Adresse:${NC}        ${CYAN}${HOST_IP}${NC}"
+echo -e "  ${DIM}Verbindungsart:${NC}    ${CYAN}${CONNECTION_MODE}${NC}"
 echo -e "  ${DIM}Modem-Port:${NC}        ${CYAN}${MODEM_PORT}${NC}"
 echo -e "  ${DIM}Audio-Gerät:${NC}       ${CYAN}${AUDIO_LABEL}${NC}"
 echo -e "  ${DIM}Admin-User:${NC}        ${CYAN}${ADMIN_USER}${NC}"
@@ -217,6 +256,7 @@ cat > "${INSTALL_DIR}/.env" << ENV
 # Bearbeite diese Datei und führe 'sudo systemctl restart callbox' aus um Änderungen anzuwenden.
 
 HOST_IP=${HOST_IP}
+CONNECTION_MODE=${CONNECTION_MODE}
 MODEM_PORT=${MODEM_PORT}
 AUDIO_DEVICE=${AUDIO_DEVICE}
 AUDIO_LABEL=${AUDIO_LABEL}
