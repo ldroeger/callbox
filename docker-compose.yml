@@ -1,0 +1,49 @@
+version: "3.8"
+
+# Diese Datei wird vom install.sh automatisch generiert.
+# Für dauerhafte Änderungen: sudo bash /opt/callbox/scripts/reconfigure.sh
+
+services:
+
+  backend:
+    build: ./backend
+    container_name: callbox-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./audio:/app/audio
+    restart: always
+    environment:
+      - MODEM_PORT=${MODEM_PORT:-/dev/ttyUSB2}
+      - AUDIO_PATH=/app/audio
+      - DB_PATH=/app/data/callbox.db
+      - SECRET_KEY=${SECRET_KEY:-changeme}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASS=${ADMIN_PASS:-admin123}
+
+  call-engine:
+    build: ./engine
+    container_name: callbox-engine
+    volumes:
+      - ./audio:/audio
+      - ./data:/data
+    restart: always
+    environment:
+      - MODEM_PORT=${MODEM_PORT:-/dev/ttyUSB2}
+      - AUDIO_PATH=/audio
+      - DB_PATH=/data/callbox.db
+      - REJECT_UNKNOWN=${REJECT_UNKNOWN:-true}
+      - NUMBER_FORMAT=${NUMBER_FORMAT:-international}
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - REACT_APP_API_URL=http://${HOST_IP:-localhost}:8000/api
+    container_name: callbox-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: always
