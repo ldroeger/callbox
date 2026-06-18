@@ -193,6 +193,10 @@ while true; do
     warn "Passwort zu kurz (mind. 4 Zeichen)"
     continue
   fi
+  if [[ "$ADMIN_PASS" == *'"'* ]] || [[ "$ADMIN_PASS" == *'\'* ]]; then
+    warn 'Bitte kein " oder \ im Passwort verwenden (technische Einschränkung der Konfigurationsdatei)'
+    continue
+  fi
   read -s -p "  Passwort wiederholen: " ADMIN_PASS2
   echo ""
   if [ "$ADMIN_PASS" = "$ADMIN_PASS2" ]; then
@@ -281,20 +285,20 @@ cat > "${INSTALL_DIR}/.env" << ENV
 # Erstellt am: $(date)
 # Bearbeite diese Datei und führe 'sudo systemctl restart callbox' aus um Änderungen anzuwenden.
 
-HOST_IP=${HOST_IP}
-CONNECTION_MODE=${CONNECTION_MODE}
-MODEM_PORT=${MODEM_PORT}
-AUDIO_DEVICE=${AUDIO_DEVICE}
-AUDIO_LABEL=${AUDIO_LABEL}
+HOST_IP="${HOST_IP}"
+CONNECTION_MODE="${CONNECTION_MODE}"
+MODEM_PORT="${MODEM_PORT}"
+AUDIO_DEVICE="${AUDIO_DEVICE}"
+AUDIO_LABEL="${AUDIO_LABEL}"
 
-ADMIN_USER=${ADMIN_USER}
-ADMIN_PASS=${ADMIN_PASS}
-SECRET_KEY=${SECRET_KEY}
+ADMIN_USER="${ADMIN_USER}"
+ADMIN_PASS="${ADMIN_PASS}"
+SECRET_KEY="${SECRET_KEY}"
 
-REJECT_UNKNOWN=${REJECT_UNKNOWN}
-LOG_RETENTION_DAYS=${LOG_RETENTION}
-NUMBER_FORMAT=${NUMBER_FMT}
-SYNC_SYSTEM_TIME_FROM_GNSS=${SYNC_GNSS_TIME}
+REJECT_UNKNOWN="${REJECT_UNKNOWN}"
+LOG_RETENTION_DAYS="${LOG_RETENTION}"
+NUMBER_FORMAT="${NUMBER_FMT}"
+SYNC_SYSTEM_TIME_FROM_GNSS="${SYNC_GNSS_TIME}"
 ENV
 
 chmod 600 "${INSTALL_DIR}/.env"
