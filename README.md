@@ -6,11 +6,22 @@ Callbox erkennt eingehende Anrufe auf einer SIM-Karte, prüft die Rufnummer gege
 
 ---
 
-## 🚀 Installation (ein Befehl)
+## 🚀 Installation
+
+**Empfohlen** – Datei herunterladen und dann ausführen (zuverlässiger über SSH):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ldroeger/callbox/main/install.sh -o /tmp/callbox_install.sh
+sudo bash /tmp/callbox_install.sh
+```
+
+**Alternative** – direkter One-Liner (funktioniert meist, kann aber über manche SSH-Clients/Terminals beim interaktiven Setup-Assistenten hängen bleiben):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ldroeger/callbox/main/install.sh | sudo bash
 ```
+
+> **Falls der One-Liner leer hängen bleibt** (keine Ausgabe, auch nach mehreren Sekunden): Mit `Strg+C` abbrechen und die empfohlene zweistufige Methode oben verwenden. Das trennt den Download vom Ausführen und vermeidet ein seltenes Pipe-/TTY-Timing-Problem, das bei manchen SSH-Verbindungen auftreten kann.
 
 Der Installer:
 1. Installiert Docker und alle Abhängigkeiten

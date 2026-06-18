@@ -2,17 +2,32 @@
 # ╔══════════════════════════════════════════════════════════════╗
 # ║           CALLBOX – One-Line Installer                       ║
 # ║  curl -fsSL https://raw.githubusercontent.com/               ║
-# ║    YOUR_USER/callbox/main/install.sh | sudo bash             ║
+# ║    ldroeger/callbox/main/install.sh -o /tmp/callbox_install.sh║
+# ║  sudo bash /tmp/callbox_install.sh                           ║
 # ╚══════════════════════════════════════════════════════════════╝
 
 set -e
 
-# ─── TTY guard ────────────────────────────────────────────────────────────────
-# When run via `curl ... | sudo bash`, stdin carries the script itself, not
-# the user's keyboard. Re-attach stdin to the real terminal so the later
-# read prompts (here and in setup_wizard.sh) actually wait for input.
-if [ ! -t 0 ] && [ -e /dev/tty ]; then
-  exec < /dev/tty
+# ─── Self-relaunch guard ──────────────────────────────────────────────────────
+# When this script is run via `curl ... | sudo bash`, it executes while still
+# being streamed through a pipe. Trying to repoint stdin to /dev/tty mid-pipe
+# has been observed to race with curl/sudo on some SSH setups and hang
+# indefinitely with no output at all. To make the one-liner work reliably
+# in every case, detect that situation and re-exec this same script from a
+# real file on disk instead - the safe, recommended way to run it anyway.
+if [ ! -t 0 ]; then
+  if [ -e /dev/tty ]; then
+    SELF_COPY="/tmp/.callbox_install_$$.sh"
+    cat > "$SELF_COPY"
+    chmod +x "$SELF_COPY"
+    exec bash "$SELF_COPY" "$@" < /dev/tty
+  else
+    echo "FEHLER: Kein interaktives Terminal verfügbar (/dev/tty fehlt)."
+    echo "Lade die Datei herunter und führe sie direkt aus:"
+    echo "  curl -fsSL https://raw.githubusercontent.com/ldroeger/callbox/main/install.sh -o /tmp/callbox_install.sh"
+    echo "  sudo bash /tmp/callbox_install.sh"
+    exit 1
+  fi
 fi
 
 REPO="https://github.com/ldroeger/callbox"
