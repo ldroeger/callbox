@@ -142,6 +142,32 @@ if [ -f "$INSTALL_DIR/.env" ]; then
   read -p "  Neu konfigurieren? [j/N]: " RECONFIG
   if [[ ! "$RECONFIG" =~ ^[jJ]$ ]]; then
     info "Bestehende Konfiguration wird verwendet."
+
+    # Migrate older .env files that don't quote their values yet (older
+    # installs could break on values containing spaces or a leading '#'
+    # after a space, e.g. AUDIO_LABEL=DAC Pro HAT being parsed as a
+    # command). Quote any KEY=value line that isn't already quoted.
+    if grep -qE '^[A-Z_]+=[^"]' "$INSTALL_DIR/.env"; then
+      info "Aktualisiere .env-Format (Werte werden in Anführungszeichen gesetzt)..."
+      TMP_ENV=$(mktemp)
+      while IFS= read -r line; do
+        if [[ "$line" =~ ^([A-Z_]+)=(.*)$ ]]; then
+          key="${BASH_REMATCH[1]}"
+          val="${BASH_REMATCH[2]}"
+          if [[ "$val" == \"*\" ]]; then
+            echo "${key}=${val}"
+          else
+            echo "${key}=\"${val}\""
+          fi
+        else
+          echo "$line"
+        fi
+      done < "$INSTALL_DIR/.env" > "$TMP_ENV"
+      mv "$TMP_ENV" "$INSTALL_DIR/.env"
+      chmod 600 "$INSTALL_DIR/.env"
+      log ".env-Format aktualisiert"
+    fi
+
     source "$INSTALL_DIR/.env"
     SKIP_WIZARD=true
   fi

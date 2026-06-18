@@ -42,6 +42,33 @@ if [ -f /tmp/callbox_env_backup ]; then
   log "Konfiguration wiederhergestellt"
 fi
 
+# Migrate older .env files that don't quote their values yet (pre-fix
+# installs could break on values containing spaces, e.g. AUDIO_LABEL
+# "DAC Pro HAT" being parsed as a command). Quote any KEY=value line
+# that isn't already quoted, leaving comments and already-quoted lines
+# untouched.
+if [ -f .env ] && grep -qE '^[A-Z_]+=[^"]' .env; then
+  info "Aktualisiere .env-Format (Werte werden in Anführungszeichen gesetzt)..."
+  TMP_ENV=$(mktemp)
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^([A-Z_]+)=(.*)$ ]]; then
+      key="${BASH_REMATCH[1]}"
+      val="${BASH_REMATCH[2]}"
+      # Already quoted? Leave as-is.
+      if [[ "$val" == \"*\" ]]; then
+        echo "${key}=${val}"
+      else
+        echo "${key}=\"${val}\""
+      fi
+    else
+      echo "$line"
+    fi
+  done < .env > "$TMP_ENV"
+  mv "$TMP_ENV" .env
+  chmod 600 .env
+  log ".env-Format aktualisiert"
+fi
+
 # Rebuild & restart
 info "Baue neue Container..."
 source .env 2>/dev/null || true
