@@ -632,6 +632,78 @@ function ModemCard({ modem, onRefresh }) {
   );
 }
 
+function HotspotCard() {
+  const [hs, setHs] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try { const r = await api.get("/hotspot"); setHs(r.data); } catch {}
+  }, []);
+
+  useEffect(() => { load(); const t = setInterval(load, 8000); return () => clearInterval(t); }, [load]);
+
+  const toggle = async () => {
+    if (!hs || busy) return;
+    setBusy(true);
+    try {
+      await api.post(hs.active ? "/hotspot/stop" : "/hotspot/start");
+      await load();
+    } catch (e) {
+      alert(e?.response?.data?.detail || "Fehler beim Steuern des Hotspots");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!hs?.configured) return null;
+
+  return (
+    <div style={styles.card}>
+      <h2 style={styles.h2}>📶 WLAN Hotspot</h2>
+      <div style={styles.statusCard}>
+        <div style={styles.statBox}>
+          <div style={{ ...styles.statNum, color: hs.active ? "#10b981" : "#64748b" }}>
+            {hs.active ? "●" : "○"}
+          </div>
+          <div style={styles.statLabel}>{hs.active ? "Aktiv" : "Inaktiv"}</div>
+        </div>
+        {hs.ssid && (
+          <div style={styles.statBox}>
+            <div style={{ ...styles.statNum, fontSize: "16px" }}>{hs.ssid}</div>
+            <div style={styles.statLabel}>WLAN-Name</div>
+          </div>
+        )}
+        {hs.ip && (
+          <div style={styles.statBox}>
+            <div style={{ ...styles.statNum, fontSize: "14px", fontFamily: "monospace" }}>{hs.ip}</div>
+            <div style={styles.statLabel}>Hotspot-IP</div>
+          </div>
+        )}
+      </div>
+
+      {hs.active && (
+        <div style={{ background: "#0f172a", borderRadius: "8px", padding: "12px 16px", marginTop: "12px", fontSize: "13px", color: "#94a3b8" }}>
+          Verbinde dich mit WLAN <strong style={{ color: "#e2e8f0" }}>{hs.ssid || "Callbox"}</strong> und öffne{" "}
+          <span style={{ color: "#7dd3fc", fontFamily: "monospace" }}>http://{hs.ip || "192.168.4.1"}:3000</span>
+        </div>
+      )}
+
+      <div style={{ marginTop: "12px", display: "flex", gap: "10px" }}>
+        <button
+          style={styles.btn(hs.active ? "#7f1d1d" : "#065f46")}
+          onClick={toggle}
+          disabled={busy}
+        >
+          {busy ? "Bitte warten…" : hs.active ? "Hotspot stoppen" : "Hotspot starten"}
+        </button>
+        <div style={{ fontSize: "12px", color: "#475569", alignSelf: "center" }}>
+          Startet automatisch wenn kein Netz verfügbar
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Dashboard() {
   const [status, setStatus] = useState(null);
   const [modem, setModem] = useState(null);
@@ -674,6 +746,7 @@ function Dashboard() {
       </div>
 
       <ModemCard modem={modem} onRefresh={loadModem} />
+      <HotspotCard />
 
       {status?.last_call && (
         <div style={styles.card}>

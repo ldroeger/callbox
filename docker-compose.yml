@@ -13,6 +13,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./audio:/app/audio
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
     restart: always
     environment:
       - MODEM_PORT=${MODEM_PORT:-/dev/ttyUSB2}
@@ -21,6 +22,8 @@ services:
       - SECRET_KEY=${SECRET_KEY:-changeme}
       - ADMIN_USER=${ADMIN_USER:-admin}
       - ADMIN_PASS=${ADMIN_PASS:-admin123}
+      - HOTSPOT_SSID=${HOTSPOT_SSID:-}
+      - HOTSPOT_IP=${HOTSPOT_IP:-192.168.4.1}
 
   call-engine:
     build: ./engine

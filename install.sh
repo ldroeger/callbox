@@ -205,6 +205,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./audio:/app/audio
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
     devices:
       - "${RESOLVED_MODEM_PORT}:${RESOLVED_MODEM_PORT}"
     restart: always
@@ -215,6 +216,8 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - ADMIN_USER=${ADMIN_USER}
       - ADMIN_PASS=${ADMIN_PASS}
+      - HOTSPOT_SSID=${HOTSPOT_SSID:-}
+      - HOTSPOT_IP=${HOTSPOT_IP:-192.168.4.1}
 
   call-engine:
     build: ./engine

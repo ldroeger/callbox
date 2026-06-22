@@ -262,6 +262,56 @@ def pin_status(user=Depends(require_auth)):
     return result
 
 
+# ─── Hotspot ─────────────────────────────────────────────────────────────────
+
+import subprocess as _sp
+
+def _nmcli(*args):
+    """Run an nmcli command, return (returncode, stdout)."""
+    try:
+        r = _sp.run(["nmcli"] + list(args), capture_output=True, text=True, timeout=10)
+        return r.returncode, r.stdout.strip()
+    except Exception as e:
+        return -1, str(e)
+
+@app.get("/api/hotspot")
+def hotspot_status(user=Depends(require_auth)):
+    """Return current hotspot state."""
+    code, out = _nmcli("-t", "-f", "NAME,STATE", "connection", "show", "--active")
+    active = "Callbox-Hotspot" in out
+
+    # Also check if the connection profile exists at all
+    code2, out2 = _nmcli("-t", "-f", "NAME", "connection", "show")
+    configured = "Callbox-Hotspot" in out2
+
+    # Read SSID and IP from .env if available
+    env_path = "/app/data/../../../opt/callbox/.env"
+    ssid, ip = None, None
+    try:
+        env_path = os.environ.get("ENV_PATH", "/run/secrets/callbox_env") or ""
+        # Read directly from process environment (passed via docker-compose)
+        ssid = os.environ.get("HOTSPOT_SSID")
+        ip   = os.environ.get("HOTSPOT_IP", "192.168.4.1")
+    except Exception:
+        pass
+
+    return {"active": active, "configured": configured, "ssid": ssid, "ip": ip}
+
+@app.post("/api/hotspot/start")
+def hotspot_start(user=Depends(require_auth)):
+    code, out = _nmcli("connection", "up", "Callbox-Hotspot")
+    if code != 0:
+        raise HTTPException(status_code=500, detail=f"Hotspot konnte nicht gestartet werden: {out}")
+    return {"ok": True, "active": True}
+
+@app.post("/api/hotspot/stop")
+def hotspot_stop(user=Depends(require_auth)):
+    code, out = _nmcli("connection", "down", "Callbox-Hotspot")
+    if code != 0:
+        raise HTTPException(status_code=500, detail=f"Hotspot konnte nicht gestoppt werden: {out}")
+    return {"ok": True, "active": False}
+
+
 # ─── WebSocket Live ──────────────────────────────────────────────────────────
 
 @app.websocket("/ws")
