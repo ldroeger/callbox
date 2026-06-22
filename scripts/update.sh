@@ -31,9 +31,13 @@ if [ -f .env ]; then
   log "Konfiguration gesichert"
 fi
 
-# Pull latest
+# Pull latest – stash any local changes first so git pull never aborts.
+# docker-compose.yml is regenerated from .env after the pull anyway,
+# so discarding local changes to it is always safe.
 info "Lade aktuelle Version..."
+git stash --quiet 2>/dev/null || true
 git pull --quiet
+git stash drop --quiet 2>/dev/null || true
 
 # Restore config
 if [ -f /tmp/callbox_env_backup ]; then
