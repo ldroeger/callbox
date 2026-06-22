@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:8000/api";
+// API URL: derived at runtime from the browser's current hostname so the
+// frontend works regardless of whether the Pi is accessed by IP, mDNS
+// (.local), or through the fallback hotspot. No build-time baking needed.
+const API = `http://${window.location.hostname}:8000/api`;
 
 const api = axios.create({ baseURL: API });
 
@@ -278,10 +281,14 @@ function AudioPage() {
   const [audios, setAudios] = useState([]);
   const [title, setTitle] = useState("");
   const [file, setFile] = useState(null);
+  const [annFile, setAnnFile] = useState(null);
+  const [annExists, setAnnExists] = useState(false);
+  const [annMsg, setAnnMsg] = useState(null);
 
   const load = useCallback(async () => {
     const r = await api.get("/audio");
     setAudios(r.data);
+    try { const a = await api.get("/audio/announcement"); setAnnExists(a.data.exists); } catch {}
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -300,18 +307,86 @@ function AudioPage() {
     await api.delete(`/audio/${id}`); load();
   };
 
+  const uploadAnnouncement = async () => {
+    if (!annFile) return;
+    setAnnMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", annFile);
+      await api.post("/audio/announcement", fd);
+      setAnnFile(null);
+      setAnnMsg({ ok: true, text: "Ansage hochgeladen." });
+      load();
+    } catch (e) {
+      setAnnMsg({ ok: false, text: e?.response?.data?.detail || "Fehler beim Upload." });
+    }
+  };
+
+  const deleteAnnouncement = async () => {
+    if (!window.confirm("Ansage-Datei löschen?")) return;
+    await api.delete("/audio/announcement");
+    setAnnMsg({ ok: true, text: "Ansage entfernt." });
+    load();
+  };
+
   return (
     <div style={styles.page}>
+
+      {/* Announcement upload */}
       <div style={styles.card}>
-        <h2 style={styles.h2}>Audio hochladen</h2>
+        <h2 style={styles.h2}>📞 Telefonansage (für den Anrufer)</h2>
+        <p style={{ color: "#64748b", fontSize: "13px", marginBottom: "14px" }}>
+          Diese Audio wird dem Anrufer <strong style={{ color: "#e2e8f0" }}>in der Telefonleitung</strong> vorgespielt
+          wenn sein Anruf angenommen wird – bevor aufgelegt und die lokale Audio abgespielt wird.
+          Beispiel: <em>„Ihre Anfrage wurde registriert."</em>
+        </p>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", marginBottom: "10px" }}>
+          <div style={{
+            padding: "6px 12px",
+            borderRadius: "6px",
+            fontSize: "13px",
+            background: annExists ? "#064e3b" : "#1e293b",
+            color: annExists ? "#6ee7b7" : "#64748b",
+            border: annExists ? "1px solid #10b981" : "1px solid #334155",
+          }}>
+            {annExists ? "✓ Ansage vorhanden (announcement.mp3)" : "○ Keine Ansage – Anrufer hört kurze Stille"}
+          </div>
+          {annExists && (
+            <button style={{ ...styles.btn("#7f1d1d"), padding: "6px 12px" }} onClick={deleteAnnouncement}>
+              Löschen
+            </button>
+          )}
+        </div>
         <div style={styles.row}>
-          <input style={styles.input} value={title} onChange={e => setTitle(e.target.value)} placeholder="Bezeichnung (z.B. Begrüßung)" />
+          <input style={{ ...styles.input, flex: "none" }} type="file" accept=".mp3,.wav,.ogg"
+            onChange={e => setAnnFile(e.target.files[0])} />
+          <button style={styles.btn("#10b981")} onClick={uploadAnnouncement} disabled={!annFile}>
+            ⬆ Ansage hochladen
+          </button>
+        </div>
+        {annMsg && (
+          <div style={{ fontSize: "13px", color: annMsg.ok ? "#6ee7b7" : "#fca5a5", marginTop: "8px" }}>
+            {annMsg.text}
+          </div>
+        )}
+      </div>
+
+      {/* Regular audio upload */}
+      <div style={styles.card}>
+        <h2 style={styles.h2}>🔊 Audio hochladen (lokale Wiedergabe)</h2>
+        <p style={{ color: "#64748b", fontSize: "13px", marginBottom: "14px" }}>
+          Diese Dateien werden <strong style={{ color: "#e2e8f0" }}>lokal über den Lautsprecher</strong> abgespielt
+          und können in der Matrix einzelnen Nutzern zugewiesen werden.
+        </p>
+        <div style={styles.row}>
+          <input style={styles.input} value={title} onChange={e => setTitle(e.target.value)} placeholder="Bezeichnung (z.B. Tor öffnen)" />
           <input style={{ ...styles.input, flex: "none" }} type="file" accept=".mp3,.wav,.ogg"
             onChange={e => setFile(e.target.files[0])} />
           <button style={styles.btn("#10b981")} onClick={upload}>⬆ Upload</button>
         </div>
         <div style={{ color: "#475569", fontSize: "12px" }}>Erlaubte Formate: MP3, WAV, OGG</div>
       </div>
+
       <div style={styles.card}>
         <h2 style={styles.h2}>Audio-Dateien ({audios.length})</h2>
         <table style={styles.table}>

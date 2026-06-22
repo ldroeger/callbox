@@ -74,9 +74,6 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      args:
-        - REACT_APP_API_URL=http://${HOST_IP:-localhost}:8000/api
     container_name: callbox-frontend
     ports:
       - "3000:3000"

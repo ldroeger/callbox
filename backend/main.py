@@ -102,6 +102,35 @@ def get_audio(user=Depends(require_auth)):
     conn.close()
     return [dict(r) for r in rows]
 
+@app.get("/api/audio/announcement")
+def get_announcement(user=Depends(require_auth)):
+    """Check whether an announcement.mp3 exists."""
+    path = os.path.join(AUDIO_PATH, "announcement.mp3")
+    return {"exists": os.path.exists(path)}
+
+@app.post("/api/audio/announcement")
+async def upload_announcement(
+    file: UploadFile = File(...),
+    user=Depends(require_auth)
+):
+    """Upload the announcement played into the phone line when a call is accepted."""
+    allowed = {".mp3", ".wav", ".ogg"}
+    ext = Path(file.filename).suffix.lower()
+    if ext not in allowed:
+        raise HTTPException(status_code=400, detail="Only MP3, WAV, OGG allowed")
+    dest = os.path.join(AUDIO_PATH, "announcement.mp3")
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"ok": True}
+
+@app.delete("/api/audio/announcement")
+def delete_announcement(user=Depends(require_auth)):
+    """Remove the announcement file."""
+    path = os.path.join(AUDIO_PATH, "announcement.mp3")
+    if os.path.exists(path):
+        os.remove(path)
+    return {"ok": True}
+
 @app.post("/api/audio")
 async def upload_audio(
     title: str = Form(...),

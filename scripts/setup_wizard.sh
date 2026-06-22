@@ -48,20 +48,20 @@ step "1/6" "Netzwerk-Konfiguration"
 
 AUTO_IP=$(hostname -I | awk '{print $1}')
 HOSTNAME_SHORT=$(hostname -s)
+HOST_IP="${AUTO_IP}"
+
 info "Erkannte IP-Adresse: ${CYAN}${AUTO_IP}${NC}"
 info "Hostname:            ${CYAN}${HOSTNAME_SHORT}${NC}"
 echo ""
 echo -e "  ${DIM}Das Web-Interface ist erreichbar über:${NC}"
-echo -e "  ${CYAN}→ http://${AUTO_IP}:3000${NC}        (aktuelle IP – kann sich ändern)"
-echo -e "  ${CYAN}→ http://${HOSTNAME_SHORT}.local:3000${NC}  (mDNS – immer erreichbar)"
+echo -e "  ${CYAN}→ http://${AUTO_IP}:3000${NC}       (aktuelle IP)"
+echo -e "  ${CYAN}→ http://${HOSTNAME_SHORT}.local:3000${NC} (mDNS – auch bei IP-Wechsel)"
 echo ""
-echo -e "  ${DIM}mDNS (*.local) funktioniert ohne Konfiguration auf Mac, iOS, Android"
-echo -e "  und Windows 10+ – empfohlen wenn der Pi keine feste IP hat.${NC}"
+echo -e "  ${DIM}Das Frontend erkennt die IP automatisch aus der Browser-Adresse –${NC}"
+echo -e "  ${DIM}keine manuelle Eingabe nötig.${NC}"
 echo ""
-prompt "IP-Adresse (für Docker-Build und direkten Zugriff):"
-read -p "  IP-Adresse [${AUTO_IP}]: " INPUT_IP
-HOST_IP="${INPUT_IP:-$AUTO_IP}"
-log "IP gesetzt: $HOST_IP  (mDNS: http://${HOSTNAME_SHORT}.local:3000)"
+read -p "  Weiter mit Enter..." _
+log "Netzwerk erkannt: $HOST_IP"
 
 # ─── Step 2: Modem ───────────────────────────────────────────────────────────
 

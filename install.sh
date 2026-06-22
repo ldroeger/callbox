@@ -202,7 +202,6 @@ version: "3.8"
 services:
 
   backend:
-    build: ./backend
     container_name: callbox-backend
     ports:
       - "8000:8000"
@@ -224,7 +223,6 @@ services:
       - HOTSPOT_IP=${HOTSPOT_IP:-192.168.4.1}
 
   call-engine:
-    build: ./engine
     container_name: callbox-engine
     devices:
       - "${RESOLVED_MODEM_PORT}:${RESOLVED_MODEM_PORT}"
@@ -244,10 +242,7 @@ services:
       - STATUS_INTERVAL_SECONDS=${STATUS_INTERVAL_SECONDS:-15}
 
   frontend:
-    build:
-      context: ./frontend
       args:
-        - REACT_APP_API_URL=http://${HOST_IP:-localhost}:8000/api
     container_name: callbox-frontend
     ports:
       - "3000:3000"

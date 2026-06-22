@@ -183,6 +183,14 @@ def modem_connect():
             update_modem_status(connected=0)
             time.sleep(5)
 
+def modem_answer():
+    """Answer an incoming call."""
+    try:
+        ser.write(b"ATA\r")
+        time.sleep(1.0)
+    except Exception as e:
+        print(f"[MODEM] Answer error: {e}", flush=True)
+
 def modem_hangup():
     try:
         ser.write(b"AT+CHUP\r")
@@ -223,6 +231,32 @@ def send_at_command(command: str, wait: float = 0.6, read_time: float = 0.8) -> 
 
 # ─── Call processing ──────────────────────────────────────────────────────────
 
+# Short announcement played into the phone line (caller hears this).
+# Upload a file called "announcement.mp3" via the web interface to customize.
+# Default: 4 seconds of silence/hold if no file is present.
+ANNOUNCEMENT_FILE   = os.path.join(AUDIO_PATH, "announcement.mp3")
+ANNOUNCEMENT_HOLD_SEC = float(os.environ.get("ANNOUNCEMENT_DURATION_SEC", "4"))
+
+def _play_announcement():
+    """
+    Play the announcement into the line while the call is connected.
+    If announcement.mp3 exists in the audio folder it is played via mpg123.
+    Otherwise the line is held open for ANNOUNCEMENT_HOLD_SEC seconds so the
+    caller at least hears silence (better than dead air with instant hangup).
+    """
+    if os.path.exists(ANNOUNCEMENT_FILE):
+        try:
+            cmd = ["mpg123", "-q"]
+            if AUDIO_CHANNELS == "mono":
+                cmd += ["-m"]
+            cmd.append(ANNOUNCEMENT_FILE)
+            subprocess.run(cmd, timeout=30)
+            return
+        except Exception as e:
+            print(f"[ANNOUNCE] mpg123 error: {e}", flush=True)
+    print(f"[ANNOUNCE] No announcement.mp3 – holding {ANNOUNCEMENT_HOLD_SEC}s", flush=True)
+    time.sleep(ANNOUNCEMENT_HOLD_SEC)
+
 def process_call(phone: str):
     print(f"[CALL] Incoming: {phone}", flush=True)
     user_id = get_user_by_phone(phone)
@@ -250,8 +284,17 @@ def process_call(phone: str):
         log_call(phone, "missing_file")
         return
 
-    print(f"[CALL] ACCEPTED – playing: {audio['title']}", flush=True)
+    # 1. Answer – caller is now connected
+    print(f"[CALL] ACCEPTED – answering, then playing: {audio['title']}", flush=True)
+    modem_answer()
+
+    # 2. Play announcement into the line (caller hears this)
+    _play_announcement()
+
+    # 3. Hang up the phone call
     modem_hangup()
+
+    # 4. Play the assigned audio on the local speaker
     audio_q.put(filepath)
     log_call(phone, "accepted", audio["filename"])
 
