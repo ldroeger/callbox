@@ -241,15 +241,6 @@ read -p "      Format [a]: " NUMBER_FORMAT
 NUMBER_FMT=$([[ "${NUMBER_FORMAT:-a}" = "b" ]] && echo "national" || echo "international")
 log "Rufnummernformat: $NUMBER_FMT"
 
-echo ""
-
-# GNSS system time sync
-echo -e "  ${CYAN}[4]${NC} Systemzeit per GNSS synchronisieren"
-echo -e "      ${DIM}Das SIM7600 kann die Pi-Uhr beim Start setzen (kein NTP/Internet nötig)${NC}"
-read -p "      Aktivieren? [J/n]: " OPT_GNSS_TIME
-SYNC_GNSS_TIME=$([[ "${OPT_GNSS_TIME:-J}" =~ ^[nN]$ ]] && echo "false" || echo "true")
-[ "$SYNC_GNSS_TIME" = "true" ] && log "GNSS-Zeitsynchronisation aktiviert" || info "GNSS-Zeitsynchronisation deaktiviert"
-
 # ─── Zusammenfassung ──────────────────────────────────────────────────────────
 
 echo ""
@@ -266,7 +257,6 @@ echo -e "  ${DIM}Admin-User:${NC}        ${CYAN}${ADMIN_USER}${NC}"
 echo -e "  ${DIM}Unbekannte ablehnen:${NC} ${CYAN}${REJECT_UNKNOWN}${NC}"
 echo -e "  ${DIM}Log-Aufbewahrung:${NC}  ${CYAN}${LOG_RETENTION} Tage${NC}"
 echo -e "  ${DIM}Rufnummernformat:${NC}  ${CYAN}${NUMBER_FMT}${NC}"
-echo -e "  ${DIM}GNSS-Zeitsync:${NC}     ${CYAN}${SYNC_GNSS_TIME}${NC}"
 echo ""
 read -p "  Konfiguration speichern und fortfahren? [J/n]: " CONFIRM
 if [[ "${CONFIRM:-J}" =~ ^[nN]$ ]]; then
@@ -298,7 +288,6 @@ SECRET_KEY="${SECRET_KEY}"
 REJECT_UNKNOWN="${REJECT_UNKNOWN}"
 LOG_RETENTION_DAYS="${LOG_RETENTION}"
 NUMBER_FORMAT="${NUMBER_FMT}"
-SYNC_SYSTEM_TIME_FROM_GNSS="${SYNC_GNSS_TIME}"
 ENV
 
 chmod 600 "${INSTALL_DIR}/.env"

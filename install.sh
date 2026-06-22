@@ -234,7 +234,6 @@ services:
       - REJECT_UNKNOWN=${REJECT_UNKNOWN:-true}
       - NUMBER_FORMAT=${NUMBER_FORMAT:-international}
       - STATUS_INTERVAL_SECONDS=${STATUS_INTERVAL_SECONDS:-15}
-      - SYNC_SYSTEM_TIME_FROM_GNSS=${SYNC_SYSTEM_TIME_FROM_GNSS:-true}
 
   frontend:
     build:

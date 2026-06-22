@@ -158,14 +158,6 @@ const styles = {
     borderRadius: "2px",
   }),
   pinForm: { display: "flex", gap: "10px", alignItems: "center", marginTop: "12px" },
-  gnssGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-    gap: "16px",
-  },
-  gnssItem: { background: "#0f172a", borderRadius: "8px", padding: "12px 16px" },
-  gnssLabel: { fontSize: "11px", color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" },
-  gnssValue: { fontSize: "16px", color: "#e2e8f0", fontFamily: "monospace", marginTop: "4px" },
 };
 
 // ─── Login ────────────────────────────────────────────────────────────────────
@@ -640,54 +632,6 @@ function ModemCard({ modem, onRefresh }) {
   );
 }
 
-function GnssCard({ modem }) {
-  if (!modem) return null;
-
-  if (!modem.gnss_fix) {
-    return (
-      <div style={styles.card}>
-        <h2 style={styles.h2}>🛰️ GNSS / Position</h2>
-        <p style={{ color: "#64748b", fontSize: "13px" }}>
-          Kein GPS-Fix. Das kann beim ersten Start einige Minuten dauern (freie Sicht zum Himmel hilft).
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div style={styles.card}>
-      <h2 style={styles.h2}>🛰️ GNSS / Position</h2>
-      <div style={styles.gnssGrid}>
-        <div style={styles.gnssItem}>
-          <div style={styles.gnssLabel}>Breitengrad</div>
-          <div style={styles.gnssValue}>{modem.gnss_lat?.toFixed(6) ?? "–"}</div>
-        </div>
-        <div style={styles.gnssItem}>
-          <div style={styles.gnssLabel}>Längengrad</div>
-          <div style={styles.gnssValue}>{modem.gnss_lon?.toFixed(6) ?? "–"}</div>
-        </div>
-        <div style={styles.gnssItem}>
-          <div style={styles.gnssLabel}>Höhe</div>
-          <div style={styles.gnssValue}>{modem.gnss_alt != null ? `${modem.gnss_alt} m` : "–"}</div>
-        </div>
-        <div style={styles.gnssItem}>
-          <div style={styles.gnssLabel}>Satelliten</div>
-          <div style={styles.gnssValue}>{modem.gnss_satellites ?? "–"}</div>
-        </div>
-        <div style={styles.gnssItem}>
-          <div style={styles.gnssLabel}>UTC-Zeit (GNSS)</div>
-          <div style={styles.gnssValue}>
-            {modem.gnss_utc_time ? new Date(modem.gnss_utc_time).toLocaleString("de-DE", { timeZone: "UTC" }) + " UTC" : "–"}
-          </div>
-        </div>
-      </div>
-      <div style={{ color: "#475569", fontSize: "11px", marginTop: "12px" }}>
-        Die Systemzeit des Pi wird beim Start einmalig von diesem GNSS-Fix übernommen (kein NTP nötig).
-      </div>
-    </div>
-  );
-}
-
 function Dashboard() {
   const [status, setStatus] = useState(null);
   const [modem, setModem] = useState(null);
@@ -730,7 +674,6 @@ function Dashboard() {
       </div>
 
       <ModemCard modem={modem} onRefresh={loadModem} />
-      <GnssCard modem={modem} />
 
       {status?.last_call && (
         <div style={styles.card}>
