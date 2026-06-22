@@ -312,6 +312,82 @@ def hotspot_stop(user=Depends(require_auth)):
     return {"ok": True, "active": False}
 
 
+# ─── Settings ────────────────────────────────────────────────────────────────
+
+ENV_PATH = "/opt/callbox/.env"  # Host path, mounted read-only via volume not available here
+                                 # We read what was injected as env vars at container start.
+
+@app.get("/api/settings")
+def get_settings(user=Depends(require_auth)):
+    """Return current runtime settings that can be changed via the web UI."""
+    return {
+        "audio_channels": os.environ.get("AUDIO_CHANNELS", "stereo"),
+        "audio_label":    os.environ.get("AUDIO_LABEL",    ""),
+        "reject_unknown": os.environ.get("REJECT_UNKNOWN", "true") == "true",
+        "number_format":  os.environ.get("NUMBER_FORMAT",  "international"),
+        "hotspot_enabled": os.environ.get("HOTSPOT_ENABLED", "false") == "true",
+    }
+
+class SettingsPatch(BaseModel):
+    audio_channels: Optional[str] = None   # "stereo" | "mono"
+
+@app.patch("/api/settings")
+def patch_settings(data: SettingsPatch, user=Depends(require_auth)):
+    """
+    Persist a changed setting to /opt/callbox/.env on the host.
+    Requires the .env file to be bind-mounted into the container.
+    After saving, the containers must be restarted for changes to take effect.
+    """
+    host_env = "/data/../../../opt/callbox/.env"  # relative to /app/data mount
+    # Resolve to actual host path via the mounted data volume
+    env_candidates = [
+        "/opt/callbox/.env",
+        os.path.join(os.path.dirname(DB_PATH), "../../.env"),
+    ]
+    env_file = None
+    for c in env_candidates:
+        if os.path.exists(c):
+            env_file = c
+            break
+
+    if not env_file:
+        raise HTTPException(status_code=503,
+            detail="Konfigurationsdatei nicht erreichbar. Bitte manuell in .env ändern.")
+
+    # Read current content
+    with open(env_file, "r") as f:
+        lines = f.readlines()
+
+    changes = {}
+    if data.audio_channels and data.audio_channels in ("stereo", "mono"):
+        changes["AUDIO_CHANNELS"] = data.audio_channels
+
+    if not changes:
+        raise HTTPException(status_code=400, detail="Keine gültigen Einstellungen")
+
+    # Apply changes: update existing keys or append if missing
+    new_lines = []
+    applied = set()
+    for line in lines:
+        key = line.split("=")[0].strip().strip('"')
+        if key in changes:
+            new_lines.append(f'{key}="{changes[key]}"\n')
+            applied.add(key)
+        else:
+            new_lines.append(line)
+
+    for key, val in changes.items():
+        if key not in applied:
+            new_lines.append(f'{key}="{val}"\n')
+
+    with open(env_file, "w") as f:
+        f.writelines(new_lines)
+
+    return {"ok": True, "saved": changes,
+            "restart_required": True,
+            "note": "Einstellungen gespeichert. Bitte Container neu starten: sudo systemctl restart callbox"}
+
+
 # ─── WebSocket Live ──────────────────────────────────────────────────────────
 
 @app.websocket("/ws")

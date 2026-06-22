@@ -91,7 +91,11 @@ apt-get install -y -qq \
   git curl wget unzip \
   docker.io docker-compose \
   mpg123 alsa-utils \
+  avahi-daemon avahi-utils \
   2>/dev/null
+
+systemctl enable avahi-daemon --quiet 2>/dev/null || true
+systemctl start avahi-daemon 2>/dev/null || true
 
 systemctl enable docker --quiet
 systemctl start docker
@@ -236,6 +240,7 @@ services:
       - DB_PATH=/data/callbox.db
       - REJECT_UNKNOWN=${REJECT_UNKNOWN:-true}
       - NUMBER_FORMAT=${NUMBER_FORMAT:-international}
+      - AUDIO_CHANNELS=${AUDIO_CHANNELS:-stereo}
       - STATUS_INTERVAL_SECONDS=${STATUS_INTERVAL_SECONDS:-15}
 
   frontend:

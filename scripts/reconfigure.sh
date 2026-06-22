@@ -69,6 +69,7 @@ services:
       - DB_PATH=/data/callbox.db
       - REJECT_UNKNOWN=${REJECT_UNKNOWN:-true}
       - NUMBER_FORMAT=${NUMBER_FORMAT:-international}
+      - AUDIO_CHANNELS=${AUDIO_CHANNELS:-stereo}
       - STATUS_INTERVAL_SECONDS=${STATUS_INTERVAL_SECONDS:-15}
 
   frontend:

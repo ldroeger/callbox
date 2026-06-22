@@ -771,6 +771,126 @@ function Dashboard() {
   );
 }
 
+// ─── Settings Page ────────────────────────────────────────────────────────────
+
+function SettingsPage() {
+  const [settings, setSettings] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  const load = useCallback(async () => {
+    try { const r = await api.get("/settings"); setSettings(r.data); } catch {}
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const save = async (patch) => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const r = await api.patch("/settings", patch);
+      setMsg({ ok: true, text: r.data.note || "Gespeichert." });
+      load();
+    } catch (e) {
+      setMsg({ ok: false, text: e?.response?.data?.detail || "Fehler beim Speichern." });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={styles.page}>
+
+      {/* Audio-Kanal */}
+      <div style={styles.card}>
+        <h2 style={styles.h2}>🔊 Audio-Ausgabe</h2>
+        <p style={{ color: "#64748b", fontSize: "13px", marginBottom: "16px" }}>
+          Aktuelles Audio-Gerät: <strong style={{ color: "#e2e8f0" }}>{settings?.audio_label || "–"}</strong>
+        </p>
+        <div style={{ marginBottom: "16px" }}>
+          <div style={{ color: "#94a3b8", fontSize: "13px", marginBottom: "10px" }}>
+            <strong style={{ color: "#e2e8f0" }}>Audio-Kanal</strong><br />
+            Mono spart Energie und reicht vollständig für Sprachansagen.
+            Stereo ist sinnvoll bei Musik oder räumlichen Klängen.
+          </div>
+          <div style={{ display: "flex", gap: "10px" }}>
+            {["stereo", "mono"].map(ch => (
+              <button
+                key={ch}
+                style={{
+                  ...styles.btn(settings?.audio_channels === ch ? "#1e3a5f" : "#1e293b"),
+                  border: settings?.audio_channels === ch ? "2px solid #38bdf8" : "2px solid #334155",
+                  color: settings?.audio_channels === ch ? "#38bdf8" : "#94a3b8",
+                }}
+                onClick={() => save({ audio_channels: ch })}
+                disabled={saving || settings?.audio_channels === ch}
+              >
+                {ch === "mono" ? "🔈 Mono" : "🔊 Stereo"}
+                {settings?.audio_channels === ch && " ✓"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {msg && (
+          <div style={{
+            padding: "10px 14px",
+            borderRadius: "8px",
+            fontSize: "13px",
+            background: msg.ok ? "#064e3b" : "#7f1d1d",
+            color: msg.ok ? "#6ee7b7" : "#fca5a5",
+            marginTop: "8px",
+          }}>
+            {msg.text}
+            {msg.ok && (
+              <div style={{ marginTop: "6px", color: "#94a3b8", fontSize: "12px" }}>
+                Neustart nötig damit Änderung aktiv wird:<br />
+                <code style={{ color: "#7dd3fc" }}>sudo systemctl restart callbox</code>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Hotspot-Info */}
+      <div style={styles.card}>
+        <h2 style={styles.h2}>📶 WLAN Hotspot</h2>
+        {settings?.hotspot_enabled ? (
+          <p style={{ color: "#64748b", fontSize: "13px" }}>
+            Hotspot ist eingerichtet. Status und Steuerung im <strong style={{ color: "#e2e8f0" }}>Dashboard</strong>.
+            <br />Konfiguration ändern: <code style={{ color: "#7dd3fc" }}>sudo bash /opt/callbox/scripts/setup_hotspot.sh</code>
+          </p>
+        ) : (
+          <div>
+            <p style={{ color: "#64748b", fontSize: "13px", marginBottom: "12px" }}>
+              Kein Hotspot eingerichtet. Der Pi startet automatisch einen WLAN-Zugriffspunkt
+              wenn kein Netz verfügbar ist – ideal für den Standalone-Betrieb.
+            </p>
+            <code style={{ color: "#7dd3fc", fontSize: "13px" }}>sudo bash /opt/callbox/scripts/setup_hotspot.sh</code>
+          </div>
+        )}
+      </div>
+
+      {/* mDNS Info */}
+      <div style={styles.card}>
+        <h2 style={styles.h2}>🌐 Erreichbarkeit</h2>
+        <p style={{ color: "#64748b", fontSize: "13px", marginBottom: "12px" }}>
+          Das Web-Interface ist immer erreichbar, auch wenn sich die IP-Adresse des Pi ändert:
+        </p>
+        <div style={{ background: "#0f172a", borderRadius: "8px", padding: "14px 16px" }}>
+          <div style={{ fontSize: "13px", color: "#94a3b8", marginBottom: "6px" }}>mDNS-Adresse (empfohlen):</div>
+          <div style={{ fontFamily: "monospace", color: "#7dd3fc", fontSize: "16px" }}>
+            http://{window.location.hostname.includes(".local") ? window.location.hostname : "<hostname>.local"}:3000
+          </div>
+          <div style={{ fontSize: "12px", color: "#475569", marginTop: "8px" }}>
+            Funktioniert ohne Router-Konfiguration auf Mac, iOS, Android und Windows 10+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
 // ─── App Root ─────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -788,6 +908,7 @@ export default function App() {
     { id: "audio", label: "🔊 Audio" },
     { id: "matrix", label: "⬛ Matrix" },
     { id: "logs", label: "📋 Protokoll" },
+    { id: "settings", label: "⚙️ Einstellungen" },
   ];
 
   return (
@@ -808,6 +929,7 @@ export default function App() {
       {tab === "audio" && <AudioPage />}
       {tab === "matrix" && <MatrixPage />}
       {tab === "logs" && <LogsPage />}
+      {tab === "settings" && <SettingsPage />}
     </div>
   );
 }

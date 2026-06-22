@@ -18,7 +18,8 @@ from datetime import datetime
 
 MODEM_PORT       = os.environ.get("MODEM_PORT",    "/dev/ttyUSB2")
 BAUDRATE         = 115200
-AUDIO_PATH       = os.environ.get("AUDIO_PATH",    "/audio")
+AUDIO_PATH       = os.environ.get("AUDIO_PATH",     "/audio")
+AUDIO_CHANNELS   = os.environ.get("AUDIO_CHANNELS", "stereo")  # "stereo" or "mono"
 DB_PATH          = os.environ.get("DB_PATH",        "/data/callbox.db")
 REJECT_UNKNOWN   = os.environ.get("REJECT_UNKNOWN", "true").lower() == "true"
 NUMBER_FORMAT    = os.environ.get("NUMBER_FORMAT",  "international")
@@ -44,7 +45,11 @@ def audio_worker():
         filepath = audio_q.get()
         try:
             print(f"[AUDIO] Playing: {filepath}", flush=True)
-            subprocess.run(["mpg123", "-q", filepath], timeout=180)
+            cmd = ["mpg123", "-q"]
+            if AUDIO_CHANNELS == "mono":
+                cmd += ["-m"]   # force mono downmix
+            cmd.append(filepath)
+            subprocess.run(cmd, timeout=180)
         except Exception as e:
             print(f"[AUDIO] Error: {e}", flush=True)
         finally:
@@ -410,7 +415,7 @@ if __name__ == "__main__":
     print("=" * 50, flush=True)
     print(f" Callbox Call Engine v2", flush=True)
     print(f" Modem:  {MODEM_PORT}", flush=True)
-    print(f" Audio:  {AUDIO_PATH}", flush=True)
+    print(f" Audio:  {AUDIO_PATH}  ({AUDIO_CHANNELS})", flush=True)
     print(f" DB:     {DB_PATH}", flush=True)
     print(f" Reject unknown: {REJECT_UNKNOWN}", flush=True)
     print(f" Number format:  {NUMBER_FORMAT}", flush=True)
